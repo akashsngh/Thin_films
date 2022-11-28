@@ -77,9 +77,5 @@ def PIV_film_2D (image_dir,im_ref_name,dt, ws,ol, sas,ti,tf, px, im_folder, h5_f
     end = time.time()
     print(end - start)
 
-<<<<<<< HEAD
-## See if git workss
-=======
 
 ###Check if i can update
->>>>>>> 2e3e6e2b872e8aa94d1437b24d487b977bb24fec
