@@ -135,9 +135,11 @@ def total_elastic_strain_energy(h5_dir, h5files, ti, tf, Ef, px, imname, plot = 
         for i in range(energy_released.shape[0]):
             axs.plot(labels, energy_released[i,:], '-o', label = 't = {}, {} s'.format((ti+i)*10,(ti+i+1)*10))
         axs.set_yscale('log')
-        axs.set_xlabel(r'resolution ($\mu$m)', fontsize = 16)
-        axs.set_ylabel(r'0.5$E_f$$\sum$|$\epsilon^2$|$A_{grid}$ (J/m)', fontsize = 16)
-        axs.legend(fontsize = 14)
+        axs.set_xlabel(r'resolution (mm) ', fontsize = 18) #($\mu$m)
+        axs.set_ylabel(r'0.5$E_f$$\sum$|$\epsilon^2$|$A_{grid}$ (J/m)', fontsize = 18)
+        axs.tick_params(axis="x", labelsize=16)
+        axs.tick_params(axis="y", labelsize=16)
+        axs.legend(fontsize = 16)
         plt.tight_layout()
         plt.savefig(imname)
 
