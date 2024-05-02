@@ -22,9 +22,9 @@ def scalevalues(im, m=None, M=None):
 
 
 def disp_grad_2D_time(im_ref_name,dt,ws,ol, sas,ti,tf, im_folder, image, gauss_bg, gauss_ns, px, cut = False):
-    # The function generates the displacement field from PIV for consecutive image of a timelapse and later assuming small strain approximation generates the 2D strain field
-    ## Initialize the h5py file which generates the specified memory in the disk
-    ### Picking a sample image to extract the size of the file
+# The function generates the displacement field from PIV for consecutive image of a timelapse and later assuming small strain approximation generates the 2D strain field
+## Initialize the h5py file which generates the specified memory in the disk
+### Picking a sample image to extract the size of the file
     im1 = cv.imread(im_ref_name+ '{:04d}.png'.format(1))
     args_h5 = {'time_resolution': dt, 'window_size': ws, 'overlap_size' : ol, 'sas' : sas, 'first_frame' :ti,
     'last_frame' : tf, 'image_file' : im_folder}
@@ -85,13 +85,13 @@ def disp_grad_2D_time(im_ref_name,dt,ws,ol, sas,ti,tf, im_folder, image, gauss_b
                 for k in range(flow[i-ti].shape[1]):
                     flow[i-ti,j,k] = u_s[j,k]*px[0]*dt, v_s[j,k]*px[1]*dt
 
-            ### Calculate the gradient
+            ### Calculate the gradient to get the local strain rate
             grad = np.gradient(flow[i-args.ti], axis = (0,1),*(args.px*np.array([args.ws-args.ol,args.ws-args.ol])))
             gd_maar = np.zeros(( x0.shape[0],x0.shape[1],2,2)) ### Added to adjust to the right tensor coordinates in x y
             for j in range(2):
                 for k in range(2):
                     gd_maar[..., j,k] = grad[j][...,k]
-                    gd_maar = np.roll(gd_maar, shift = 1, axis = 2)
+            gd_maar = np.roll(gd_maar, shift = 1, axis = 2)
             grad_field[i-args.ti] = gd_maar
 
             ### Plotting the quiver overlayed on the image
@@ -108,40 +108,64 @@ def disp_grad_2D_time(im_ref_name,dt,ws,ol, sas,ti,tf, im_folder, image, gauss_b
 
 
 def total_elastic_strain_energy(h5_dir, h5files, ti, tf, Ef, px, imname, plot = True):
+#Calculate the total elastic strain energy from the strain rate data stored in HDF5 files. 
+##It iterates over each file and calculates energy released and total area for each time frame. 
+###Finally, it plots the data if the plot flag is set to True.
+
+    # Change directory to the specified h5 directory
     os.chdir(h5_dir)
-    energy_released = np.zeros((tf-ti, len(h5files)))
-    area_total = np.zeros((tf-ti, len(h5files)))
-    net_displacment_area = np.zeros((tf-ti, len(h5files)))
+    
+    # Initialize arrays to store energy, area, and displacement data
+    energy_released = np.zeros((tf - ti, len(h5files)))
+    area_total = np.zeros((tf - ti, len(h5files)))
+    net_displacement_area = np.zeros((tf - ti, len(h5files)))
+    
+    # Initialize an array to store labels
     labels = np.zeros((len(h5files)))
-    for j in range(0,energy_released.shape[0]):
+    
+    # Iterate over time frames
+    for j in range(0, energy_released.shape[0]):
+        # Iterate over each file
         for i, file in enumerate(h5files):
-            with h5py.File(file,'r') as h5file:
+            # Open the HDF5 file
+            with h5py.File(file, 'r') as h5file:
+                # Get keys and attributes from the file
                 ls = list(h5file.keys())
                 data = h5file.get('FlowField')
                 atts = dict(data.attrs)
                 ws = atts['window_size']
                 ol = atts['overlap_size']
-                labels[i] = (ws-ol)*px[0]*1e3
-                grad_array =h5file.get('gradient_field')[j]#[t1-1:t1-1+j]
-                #print(grad_array)
-                strain_field = 0.5*(grad_array+grad_array.transpose(0,1,3,2))
-                flowfield_array = h5file.get('FlowField')[j] #Flowfields at the jth time to get the net displacment beetween j-1th and jth frame
+                
+                # Calculate and store label
+                labels[i] = (ws - ol) * px[0] * 1e3
+                
+                # Get gradient and strain fields
+                grad_array = h5file.get('gradient_field')[j]
+                strain_field = 0.5 * (grad_array + grad_array.transpose(0, 1, 3, 2))
+                
+                # Calculate norm of strain field
                 norm_strain = np.linalg.norm(strain_field, axis=(-2, -1))
-                #print(norm_strain.shape)
-                energy_released[j,i] = 1.33*0.5*Ef*(((ws-ol)**2)*((px[0])**2))*(norm_strain**2).sum()
-                area_total[j-1, i] = (((ws-ol)**2)*((px[0])**2))*np.ones(norm_strain.shape).sum()
-    if plot==True:
-        fig, axs = plt.subplots(1,1, figsize = (12,8))
+                
+                # Calculate and store energy released
+                energy_released[j, i] = 1.33 * 0.5 * Ef * (((ws - ol) ** 2) * ((px[0]) ** 2)) * (norm_strain ** 2).sum()
+                
+                # Calculate and store total area
+                area_total[j - 1, i] = (((ws - ol) ** 2) * ((px[0]) ** 2)) * np.ones(norm_strain.shape).sum()
+                
+    # If plot flag is True, plot the data
+    if plot:
+        fig, axs = plt.subplots(1, 1, figsize=(12, 8))
         for i in range(energy_released.shape[0]):
-            axs.plot(labels, energy_released[i,:], '-o', label = 't = {}, {} s'.format((ti+i)*10,(ti+i+1)*10))
+            axs.plot(labels, energy_released[i, :], '-o', label='t = {}, {} s'.format((ti + i) * 10, (ti + i + 1) * 10))
         axs.set_yscale('log')
-        axs.set_xlabel(r'resolution (mm) ', fontsize = 18) #($\mu$m)
-        axs.set_ylabel(r'0.5$E_f$$\sum$|$\epsilon^2$|$A_{grid}$ (J/m)', fontsize = 18)
+        axs.set_xlabel(r'resolution (mm) ', fontsize=18)
+        axs.set_ylabel(r'0.5$E_f$$\sum$|$\epsilon^2$|$A_{grid}$ (J/m)', fontsize=18)
         axs.tick_params(axis="x", labelsize=16)
         axs.tick_params(axis="y", labelsize=16)
-        axs.legend(fontsize = 16)
+        axs.legend(fontsize=16)
         plt.tight_layout()
         plt.savefig(imname)
+
 
 if __name__== '__main__':
     parser = argparse.ArgumentParser(description='Apply PIV between two stack of images at different timelapse')
